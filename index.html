@@ -43,10 +43,6 @@ header{position:sticky;top:0;z-index:5;background:#000;border-bottom:1px solid #
 .bell .nm{position:absolute;left:-20px;right:-20px;top:50%;transform:translateY(-50%);text-align:center;font-size:13.5px;font-weight:300;color:#fff;text-shadow:0 0 1.5px rgba(0,0,0,.75),0 0 5px rgba(0,0,0,.65),0 0 14px rgba(0,0,0,.55);white-space:nowrap;pointer-events:none}
 .bell.sel .nm{font-weight:300;font-size:14.5px}
 .bell .nm{-webkit-font-smoothing:antialiased}
-.smode{display:flex;gap:18px;justify-content:center;height:0;opacity:0;overflow:hidden;transition:height .35s ease,opacity .35s ease,margin .35s ease;margin-top:0}
-.smode.on{height:40px;opacity:1;margin-top:10px}
-.smode button{height:36px;min-width:84px;padding:0 22px;border-radius:18px;border:1.5px solid transparent;font-size:13px;font-weight:300;color:#666}
-.smode button[aria-pressed=true]{border-color:#fff;color:#fff}
 .dots{display:flex;gap:14px;margin-top:4px}
 .dots button{width:36px;height:36px;border-radius:50%;font-size:14px;color:var(--dim);border:1.5px solid transparent}
 .dots button[aria-pressed=true]{border-color:#fff;color:#fff}
@@ -244,7 +240,6 @@ header{position:sticky;top:0;z-index:5;background:#000;border-bottom:1px solid #
 <p class="lbl" id="topLbl">Starting bell</p>
 <div class="col idle-only">
 <div class="car" id="car" aria-label="Starting bell"></div>
-<div class="smode" id="smode"><button data-v="0">None</button><button data-v="1">Vibrate</button></div>
 </div>
 <div class="pills">
 <button class="pill" id="pDur"><span>Duration</span><span class="v"><span id="vDur">20:00</span><svg width="8" height="13" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5l5 5-5 5" fill="none" stroke="#808080" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
@@ -351,7 +346,7 @@ const SOUNDS=[{id:'none',name:'None'},{id:'wood',name:'Woodblock'},{id:'basu',na
 const nameOf=id=>id==='none'?'None':(SOUNDS.find(s=>s.id===id)||{}).name||'';
 const MSGS=["Namaste","Enjoy the moments","Carry this stillness with you","May the quiet stay with you","Rest in what you found","Go gently into the rest of your day","Breathe easy out there","Thank you for showing up for yourself","The river keeps flowing","Take this calm into the next hour","Be kind to yourself today","Peace in every step","You gave yourself this time","Let it all settle","Return softly","Stay with the breath a little longer","May you be at ease","Let the next moment arrive on its own","Light and easy now","Sit with the afterglow for a moment","Notice how you feel right now","Take your time getting up","Here and now is enough","May you be well","Walk on lightly","The quiet is always here when you come back","Keep a little of this with you","Be present for whatever comes next","Well sat, friend","Let the stillness travel with you"];
 const KEY='sit-timer-v1';
-const DEF={settings:{dur:20,countIn:5,startBell:'shurong',startVibe:false,strikes:1,endBell:'shurong'},sessions:[],cats:['Silent','Gateway','Guided']};
+const DEF={settings:{dur:20,countIn:5,startBell:'shurong',strikes:1,endBell:'shurong'},sessions:[],cats:['Silent','Gateway','Guided']};
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!S||!S.settings)S=JSON.parse(JSON.stringify(DEF));
@@ -412,17 +407,7 @@ car.innerHTML=SOUNDS.map((s,i)=>`<button class="bell" data-id="${s.id}" data-i="
 function markCar(){
  const i=SOUNDS.findIndex(s=>s.id===S.settings.startBell);
  car.querySelectorAll('.bell').forEach(b=>{b.classList.toggle('sel',+b.dataset.i===i);b.setAttribute('aria-pressed',+b.dataset.i===i)});
- $('smode').classList.toggle('on',S.settings.startBell==='none');
- $('smode').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.v==='1')===!!S.settings.startVibe));
 }
-/* vibration: Android uses navigator.vibrate; iOS Safari has no vibrate API, so toggle a hidden switch control, which fires the Taptic Engine (needs a recent tap) */
-let hapSw;
-function buzz(){
- if(navigator.vibrate&&navigator.vibrate([250,120,250]))return;
- if(!hapSw){const l=document.createElement('label');l.style.cssText='position:fixed;left:-9999px;opacity:0';const c=document.createElement('input');c.type='checkbox';c.setAttribute('switch','');l.appendChild(c);document.body.appendChild(l);hapSw=l}
- hapSw.click();setTimeout(()=>hapSw.click(),140);
-}
-$('smode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.settings.startVibe=b.dataset.v==='1';save();markCar();if(S.settings.startVibe)buzz()});
 let scT;
 car.addEventListener('scroll',()=>{clearTimeout(scT);scT=setTimeout(()=>{const i=Math.max(0,Math.min(SOUNDS.length-1,Math.round(car.scrollLeft/STEP)));if(SOUNDS[i].id!==S.settings.startBell){S.settings.startBell=SOUNDS[i].id;save();markCar()}},120)},{passive:true});
 car.addEventListener('click',e=>{const b=e.target.closest('.bell');if(!b)return;const i=+b.dataset.i;S.settings.startBell=SOUNDS[i].id;save();markCar();car.scrollTo({left:i*STEP,behavior:'smooth'});ring(SOUNDS[i].id,1)});
@@ -464,7 +449,7 @@ const todayMin=()=>S.sessions.filter(s=>s.date===dkey(new Date())).reduce((a,s)=
 function addSession(date,min,cat){S.sessions.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),date,min,cat});save()}
 
 /* ---------- timer ---------- */
-let run=null,tickT=null,wake=null,vibeT=null;
+let run=null,tickT=null,wake=null;
 function paintTimer(){
  const st=S.settings;
  $('vDur').textContent=fmt(st.dur*60);$('durBig').textContent=fmt(st.dur*60);
@@ -483,9 +468,7 @@ function scheduleEnd(secFromNow){const c=ctx();ring(S.settings.endBell,1,c.curre
 function start(){
  const c=ctx(),st=S.settings,now=Date.now(),ci=st.countIn;
  run={phase:ci?'count':'sit',countEnd:now+ci*1000,start:now+ci*1000,end:now+ci*1000+st.dur*60000,total:st.dur*60000,left:0};
- killStartBus();startBus=c.createGain();startBus.connect(c.destination);ring(st.startBell,1,c.currentTime+ci,startBus);
- clearTimeout(vibeT);if(st.startBell==='none'&&st.startVibe){if(ci)vibeT=setTimeout(buzz,ci*1000);else buzz()}
- scheduleEnd(ci+st.dur*60);
+ killStartBus();startBus=c.createGain();startBus.connect(c.destination);ring(st.startBell,1,c.currentTime+ci,startBus); scheduleEnd(ci+st.dur*60);
  keepAlive(0);lock();$('rs').classList.remove('paused');$('rs').classList.add('on');tick();tickT=setInterval(tick,250);
 }
 const clk=sec=>{sec=Math.max(0,Math.ceil(sec));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return h?h+':'+pad(m)+':'+pad(s):pad(m)+':'+pad(s)};
@@ -507,7 +490,7 @@ function tick(){
  if(p!==ppState){ppState=p;$('ppBtn').innerHTML=p==='play'?PLAY_ICO:PAUSE_ICO;$('ppBtn').setAttribute('aria-label',p==='play'?'Resume':(run.phase==='count'?'Cancel':'Pause'))}
  $('rs').classList.toggle('paused',run.phase==='paused');
 }
-function stop(){clearInterval(tickT);clearTimeout(vibeT);run=null;ppState='';clearTimeout(keepT);keepT=setTimeout(()=>{if(!run&&keepEl)keepEl.pause()},12000);unlock();$('rs').classList.remove('on','paused');paintTimer()}
+function stop(){clearInterval(tickT);run=null;ppState='';clearTimeout(keepT);keepT=setTimeout(()=>{if(!run&&keepEl)keepEl.pause()},12000);unlock();$('rs').classList.remove('on','paused');paintTimer()}
 function finish(full){
  if(!run)return;
  const now=Date.now();
